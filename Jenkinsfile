@@ -1,34 +1,21 @@
 pipeline {
-    // 1. Define the Kubernetes Pod with a 'docker' container
-
     agent {
-            kubernetes {
-                yaml '''
-                apiVersion: v1
-                kind: Pod
-                spec:
-                  containers:
-                  - name: docker
-                    image: docker:latest
-                    command:
-                    - cat
-                    tty: true
-                    # ----------------------------------------
-                    # ADD THIS SECTION TO FIX PERMISSIONS
-                    securityContext:
-                      runAsUser: 0
-                      privileged: true
-                    # ----------------------------------------
-                    volumeMounts:
-                    - name: docker-sock
-                      mountPath: /var/run/docker.sock
-                  volumes:
-                  - name: docker-sock
-                    hostPath:
-                      path: /var/run/docker.sock
-                '''
-            }
+        kubernetes {
+            yaml '''
+            apiVersion: v1
+            kind: Pod
+            spec:
+              containers:
+              # We use the 'debug' version of Kaniko because it includes a shell
+              - name: kaniko
+                image: gcr.io/kaniko-project/executor:debug
+                command:
+                - sleep
+                - 9999999
+                tty: true
+            '''
         }
+    }
 
     options {
         disableConcurrentBuilds()
@@ -36,8 +23,8 @@ pipeline {
 
     environment {
         IMAGE_NAME = "kalpit191/ecommerce-flask-app"
-        // We will set this dynamically in the build stage
-        IMAGE_TAG = "latest" 
+        // We set the tag dynamically in the script
+        IMAGE_TAG = "latest"
     }
 
     stages {
@@ -47,27 +34,34 @@ pipeline {
             }
         }
 
-        stage('Build and Push Docker Image') {
+        stage('Build and Push with Kaniko') {
             when { branch 'main' }
             steps {
                 script {
                     def NEW_IMAGE_TAG = "build-${BUILD_NUMBER}"
                     
-                    // 2. Run these commands inside the 'docker' container defined above
-                    container('docker') {
+                    container('kaniko') {
                         withCredentials([usernamePassword(
                             credentialsId: 'dockerhub-creds', 
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
-                            // Note: 'docker login' might warn about storing creds unencrypted, which is normal in CI
-                            sh "docker login -u $DOCKER_USER -p $DOCKER_PASS"
-                            sh "docker build -t $IMAGE_NAME:${NEW_IMAGE_TAG} ."
-                            sh "docker push $IMAGE_NAME:${NEW_IMAGE_TAG}"
+                            sh """
+                                # 1. Create the auth file for Docker Hub
+                                # Kaniko needs a config.json file to authenticate
+                                echo "{\\"auths\\":{\\"https://index.docker.io/v1/\\":{\\"auth\\":\\"\$(echo -n ${DOCKER_USER}:${DOCKER_PASS} | base64)\\"}}}" > /kaniko/.docker/config.json
+                                
+                                # 2. Run Kaniko Executor
+                                # This builds the image and pushes it in one step
+                                /kaniko/executor \
+                                    --context `pwd` \
+                                    --destination ${IMAGE_NAME}:${NEW_IMAGE_TAG} \
+                                    --force
+                            """
                         }
                     }
                     
-                    // Update env variable for the next stage
+                    // Update env variable so the next stage knows the tag
                     env.IMAGE_TAG = NEW_IMAGE_TAG
                 }
             }
@@ -76,7 +70,6 @@ pipeline {
         stage('Update Kubernetes Manifests') {
             when { branch 'main' }
             steps {
-                // This runs in the default 'jnlp' container, which has git
                 withCredentials([usernamePassword(
                     credentialsId: 'github-creds',
                     usernameVariable: 'GIT_USER',
@@ -90,7 +83,7 @@ pipeline {
                         git checkout main
                         git pull origin main
                         
-                        # Update the deployment yaml with the new tag
+                        # Update deployment.yaml
                         sed -i "s|image: .*|image: ${IMAGE_NAME}:${env.IMAGE_TAG}|g" kube/deployment.yaml
                         
                         git add kube/deployment.yaml
