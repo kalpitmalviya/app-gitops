@@ -31,7 +31,7 @@ pipeline {
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
-                        sh "docker login -u $DOCKER_USER -p $DOCKER_PASS"
+                        //sh "docker login -u $DOCKER_USER -p $DOCKER_PASS"
                         sh "docker build -t $IMAGE_NAME:${NEW_IMAGE_TAG} ."
                         sh "docker push $IMAGE_NAME:${NEW_IMAGE_TAG}"
                     }
