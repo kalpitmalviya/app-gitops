@@ -19,67 +19,67 @@ pipeline {
             }
         }
 
-        // stage('Build and Push Docker Image') {
-        //     when { branch 'main' }
-        //     steps {
-                
-        //         script {
-        //             def NEW_IMAGE_TAG = "build-${BUILD_NUMBER}"
-                    
-        //             withCredentials([usernamePassword(
-        //                 credentialsId: 'dockerhub-creds', 
-        //                 usernameVariable: 'DOCKER_USER',
-        //                 passwordVariable: 'DOCKER_PASS'
-        //             )]) {
-        //                 //sh "docker login -u $DOCKER_USER -p $DOCKER_PASS"
-        //                 sh "docker build -t $IMAGE_NAME:${NEW_IMAGE_TAG} ."
-        //                 sh "docker push $IMAGE_NAME:${NEW_IMAGE_TAG}"
-        //             }
-                    
-        //             // Update the environment variable so the next stage can see it
-        //             env.IMAGE_TAG = NEW_IMAGE_TAG
-        //         }
-        //     }
-        // }
-        
-
         stage('Build and Push Docker Image') {
             when { branch 'main' }
             steps {
+                
                 script {
                     def NEW_IMAGE_TAG = "build-${BUILD_NUMBER}"
-        
-                    container('kaniko') {
-                        withCredentials([usernamePassword(
-                            credentialsId: 'dockerhub-creds',
-                            usernameVariable: 'DOCKER_USER',
-                            passwordVariable: 'DOCKER_PASS'
-                        )]) {
-                            sh '''
-                              mkdir -p /kaniko/.docker
-                              cat <<'EOF' > /kaniko/.docker/config.json
-                              {
-                                "auths": {
-                                  "https://index.docker.io/v1/": {
-                                    "username": "'"$DOCKER_USER"'",
-                                    "password": "'"$DOCKER_PASS"'"
-                                  }
-                                }
-                              }
-                              EOF
-        
-                              /kaniko/executor \
-                                --context $WORKSPACE \
-                                --dockerfile Dockerfile \
-                                --destination '"$IMAGE_NAME:$NEW_IMAGE_TAG"'
-                            '''
-                        }
+                    
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-creds', 
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        //sh "docker login -u $DOCKER_USER -p $DOCKER_PASS"
+                        sh "docker build -t $IMAGE_NAME:${NEW_IMAGE_TAG} ."
+                        sh "docker push $IMAGE_NAME:${NEW_IMAGE_TAG}"
                     }
-        
+                    
+                    // Update the environment variable so the next stage can see it
                     env.IMAGE_TAG = NEW_IMAGE_TAG
                 }
             }
         }
+        
+
+        // stage('Build and Push Docker Image') {
+        //     when { branch 'main' }
+        //     steps {
+        //         script {
+        //             def NEW_IMAGE_TAG = "build-${BUILD_NUMBER}"
+        
+        //             container('kaniko') {
+        //                 withCredentials([usernamePassword(
+        //                     credentialsId: 'dockerhub-creds',
+        //                     usernameVariable: 'DOCKER_USER',
+        //                     passwordVariable: 'DOCKER_PASS'
+        //                 )]) {
+        //                     sh '''
+        //                       mkdir -p /kaniko/.docker
+        //                       cat <<'EOF' > /kaniko/.docker/config.json
+        //                       {
+        //                         "auths": {
+        //                           "https://index.docker.io/v1/": {
+        //                             "username": "'"$DOCKER_USER"'",
+        //                             "password": "'"$DOCKER_PASS"'"
+        //                           }
+        //                         }
+        //                       }
+        //                       EOF
+        
+        //                       /kaniko/executor \
+        //                         --context $WORKSPACE \
+        //                         --dockerfile Dockerfile \
+        //                         --destination '"$IMAGE_NAME:$NEW_IMAGE_TAG"'
+        //                     '''
+        //                 }
+        //             }
+        
+        //             env.IMAGE_TAG = NEW_IMAGE_TAG
+        //         }
+        //     }
+        // }
 
 
         stage('Update Kubernetes Manifests') { 
