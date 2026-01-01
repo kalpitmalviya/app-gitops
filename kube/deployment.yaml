@@ -15,5 +15,6 @@ spec:
       containers:
         - name: myapp
           image: kalpit191/ecommerce-flask-app:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
