@@ -85,7 +85,7 @@ pipeline {
                         
                         # Update deployment.yaml
                         // Use the image name in the search pattern to be specific
-                        sed -i "s|image: ${IMAGE_NAME}:.*|image: ${IMAGE_NAME}:${env.IMAGE_TAG}|g" kube/deployment.yaml
+                        sed -i "s|image: .*|image: ${IMAGE_NAME}:${env.IMAGE_TAG}|g" kube/deployment.yaml
                         
                         git add kube/deployment.yaml
                         git diff --cached --quiet || git commit -m "Updated image tag to ${env.IMAGE_TAG}"
