@@ -1,27 +1,34 @@
 pipeline {
     // 1. Define the Kubernetes Pod with a 'docker' container
+
     agent {
-        kubernetes {
-            yaml '''
-            apiVersion: v1
-            kind: Pod
-            spec:
-              containers:
-              - name: docker
-                image: docker:latest
-                command:
-                - cat
-                tty: true
-                volumeMounts:
-                - name: docker-sock
-                  mountPath: /var/run/docker.sock
-              volumes:
-              - name: docker-sock
-                hostPath:
-                  path: /var/run/docker.sock
-            '''
+            kubernetes {
+                yaml '''
+                apiVersion: v1
+                kind: Pod
+                spec:
+                  containers:
+                  - name: docker
+                    image: docker:latest
+                    command:
+                    - cat
+                    tty: true
+                    # ----------------------------------------
+                    # ADD THIS SECTION TO FIX PERMISSIONS
+                    securityContext:
+                      runAsUser: 0
+                      privileged: true
+                    # ----------------------------------------
+                    volumeMounts:
+                    - name: docker-sock
+                      mountPath: /var/run/docker.sock
+                  volumes:
+                  - name: docker-sock
+                    hostPath:
+                      path: /var/run/docker.sock
+                '''
+            }
         }
-    }
 
     options {
         disableConcurrentBuilds()
