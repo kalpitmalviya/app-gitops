@@ -55,32 +55,32 @@ pipeline {
                             usernameVariable: 'DOCKER_USER',
                             passwordVariable: 'DOCKER_PASS'
                         )]) {
-                            sh """
+                            sh '''
                               mkdir -p /kaniko/.docker
-                              cat <<EOF > /kaniko/.docker/config.json
+                              cat <<'EOF' > /kaniko/.docker/config.json
                               {
                                 "auths": {
                                   "https://index.docker.io/v1/": {
-                                    "username": "$DOCKER_USER",
-                                    "password": "$DOCKER_PASS"
+                                    "username": "'"$DOCKER_USER"'",
+                                    "password": "'"$DOCKER_PASS"'"
                                   }
                                 }
                               }
                               EOF
         
                               /kaniko/executor \
-                                --context \$WORKSPACE \
+                                --context $WORKSPACE \
                                 --dockerfile Dockerfile \
-                                --destination $IMAGE_NAME:${NEW_IMAGE_TAG}
-                            """
+                                --destination '"$IMAGE_NAME:$NEW_IMAGE_TAG"'
+                            '''
                         }
                     }
         
-                    // Make image tag available to next stages
                     env.IMAGE_TAG = NEW_IMAGE_TAG
                 }
             }
         }
+
 
         stage('Update Kubernetes Manifests') { 
             when { branch 'main' }
