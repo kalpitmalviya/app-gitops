@@ -1,68 +1,138 @@
 from flask import Flask, render_template_string, request, jsonify, session
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import random
+import threading
+import time
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this in production
 
-# Sample products with free images from Picsum
+# Enhanced products with inventory and flash sale data
 products = [
     {
         "id": 1,
         "name": "Wireless Headphones",
         "price": 99.99,
+        "original_price": 149.99,
         "image": "https://picsum.photos/300/200?random=1",
         "category": "Electronics",
         "description": "High-quality wireless headphones with noise cancellation",
-        "rating": 4.5
+        "rating": 4.5,
+        "stock": 15,
+        "flash_sale": True,
+        "sale_end": (datetime.now() + timedelta(hours=2)).isoformat()
     },
     {
         "id": 2,
         "name": "Smart Watch",
         "price": 199.99,
+        "original_price": 199.99,
         "image": "https://picsum.photos/300/200?random=2",
         "category": "Electronics",
         "description": "Feature-rich smartwatch with health monitoring",
-        "rating": 4.2
+        "rating": 4.2,
+        "stock": 8,
+        "flash_sale": False,
+        "sale_end": None
     },
     {
         "id": 3,
         "name": "Running Shoes",
-        "price": 79.99,
+        "price": 59.99,
+        "original_price": 79.99,
         "image": "https://picsum.photos/300/200?random=3",
         "category": "Fashion",
         "description": "Comfortable running shoes for all terrains",
-        "rating": 4.7
+        "rating": 4.7,
+        "stock": 23,
+        "flash_sale": True,
+        "sale_end": (datetime.now() + timedelta(hours=1, minutes=30)).isoformat()
     },
     {
         "id": 4,
         "name": "Coffee Maker",
         "price": 49.99,
+        "original_price": 49.99,
         "image": "https://picsum.photos/300/200?random=4",
         "category": "Home",
         "description": "Automatic coffee maker with timer",
-        "rating": 4.3
+        "rating": 4.3,
+        "stock": 12,
+        "flash_sale": False,
+        "sale_end": None
     },
     {
         "id": 5,
         "name": "Backpack",
         "price": 39.99,
+        "original_price": 39.99,
         "image": "https://picsum.photos/300/200?random=5",
         "category": "Fashion",
         "description": "Waterproof backpack with laptop compartment",
-        "rating": 4.6
+        "rating": 4.6,
+        "stock": 30,
+        "flash_sale": False,
+        "sale_end": None
     },
     {
         "id": 6,
         "name": "Desk Lamp",
         "price": 29.99,
+        "original_price": 29.99,
         "image": "https://picsum.photos/300/200?random=6",
         "category": "Home",
         "description": "LED desk lamp with adjustable brightness",
-        "rating": 4.4
+        "rating": 4.4,
+        "stock": 18,
+        "flash_sale": False,
+        "sale_end": None
     }
 ]
+
+# Track active users and recent activities
+active_users = {"count": random.randint(50, 150)}
+recent_activities = []
+
+# Simulate real-time activities
+def simulate_activity():
+    """Background thread to simulate user activities"""
+    activity_types = [
+        "just purchased {product}",
+        "is viewing {product}",
+        "added {product} to cart"
+    ]
+    
+    while True:
+        time.sleep(random.randint(3, 8))
+        
+        # Random activity
+        product = random.choice(products)
+        activity = random.choice(activity_types).format(product=product['name'])
+        location = random.choice(["New York", "Los Angeles", "Chicago", "Houston", "Miami", "Seattle"])
+        
+        recent_activities.insert(0, {
+            "text": f"Someone from {location} {activity}",
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        # Keep only last 10 activities
+        if len(recent_activities) > 10:
+            recent_activities.pop()
+        
+        # Randomly adjust active users
+        active_users["count"] = max(30, min(300, active_users["count"] + random.randint(-5, 8)))
+        
+        # Randomly decrease stock
+        if random.random() < 0.3:
+            product_to_update = random.choice(products)
+            if product_to_update["stock"] > 0:
+                product_to_update["stock"] = max(0, product_to_update["stock"] - random.randint(1, 2))
+
+# Start background thread
+activity_thread = threading.Thread(target=simulate_activity, daemon=True)
+activity_thread.start()
 
 # HTML Template
 HTML_TEMPLATE = """
@@ -71,11 +141,10 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ShopEasily - Premium Online Store</title>
+    <title>ShopEasily - Live Shopping Experience</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Custom Variables */
         :root {
             --primary: #6366f1;
             --primary-dark: #4f46e5;
@@ -85,7 +154,6 @@ HTML_TEMPLATE = """
 
         html { scroll-behavior: smooth; }
 
-        /* Glass-morphism navbar */
         .navbar {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
@@ -161,6 +229,11 @@ HTML_TEMPLATE = """
             transition: all 0.3s ease; border-radius: 10px; font-weight: 600;
         }
         .add-to-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5); }
+        .add-to-cart-btn:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+            transform: none;
+        }
 
         .cart-sidebar {
             background: white; box-shadow: -10px 0 50px rgba(0, 0, 0, 0.15);
@@ -171,14 +244,13 @@ HTML_TEMPLATE = """
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         }
 
-        /* Toast Notification */
         .toast-notification {
             position: fixed; top: 100px; right: 20px;
             background: white; border-left: 4px solid #10b981;
             padding: 15px 25px; border-radius: 8px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
             transform: translateX(200%); transition: transform 0.3s ease;
-            z-index: 100; display: flex; items-center;
+            z-index: 100; display: flex; align-items: center;
         }
         .toast-notification.show { transform: translateX(0); }
         
@@ -188,7 +260,7 @@ HTML_TEMPLATE = """
         }
         .hero-cta:hover { transform: translateY(-4px) scale(1.05); }
 
-        .img-container { overflow: hidden; }
+        .img-container { overflow: hidden; position: relative; }
         
         .badge-new {
             position: absolute; top: 10px; right: 10px;
@@ -196,10 +268,129 @@ HTML_TEMPLATE = """
             color: white; padding: 4px 12px; border-radius: 20px;
             font-size: 12px; font-weight: 600; z-index: 10;
         }
+
+        .badge-flash {
+            position: absolute; top: 10px; left: 10px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white; padding: 6px 12px; border-radius: 20px;
+            font-size: 11px; font-weight: 700; z-index: 10;
+            animation: flash-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes flash-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 107, 107, 0.6); }
+        }
         
         .price-badge {
             background: #ecfdf5; color: #059669; padding: 4px 8px;
             border-radius: 6px; font-weight: bold;
+        }
+
+        .original-price {
+            text-decoration: line-through;
+            color: #9ca3af;
+            font-size: 0.875rem;
+        }
+
+        .stock-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .stock-low {
+            background: #fef3c7;
+            color: #92400e;
+            animation: stock-blink 2s ease-in-out infinite;
+        }
+
+        .stock-out {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .stock-available {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        @keyframes stock-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .countdown-timer {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .live-indicator {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            animation: live-pulse 2s ease-in-out infinite;
+            margin-right: 6px;
+        }
+
+        @keyframes live-pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+        }
+
+        .activity-feed {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 320px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            z-index: 45;
+            max-height: 400px;
+            overflow: hidden;
+        }
+
+        .activity-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 0.875rem;
+            color: #4b5563;
+            animation: slideInLeft 0.5s ease;
+        }
+
+        @keyframes slideInLeft {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .stats-bar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .scroll-top {
@@ -211,6 +402,24 @@ HTML_TEMPLATE = """
             z-index: 40;
         }
         .scroll-top.show { opacity: 1; pointer-events: all; }
+
+        .notification-popup {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            padding: 16px 20px;
+            z-index: 100;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            max-width: 350px;
+        }
+
+        .notification-popup.show {
+            transform: translateX(0);
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -232,11 +441,17 @@ HTML_TEMPLATE = """
                     </div>
                 </div>
 
-                <div class="relative">
-                    <button onclick="toggleCart()" class="p-3 text-gray-700 hover:text-indigo-600 cart-icon relative">
-                        <i class="fas fa-shopping-cart text-2xl"></i>
-                        <span id="cartCount" class="cart-badge" style="display: none;">0</span>
-                    </button>
+                <div class="flex items-center gap-4">
+                    <div class="text-sm">
+                        <span class="live-indicator"></span>
+                        <span class="font-semibold text-gray-700"><span id="activeUsers">0</span> online</span>
+                    </div>
+                    <div class="relative">
+                        <button onclick="toggleCart()" class="p-3 text-gray-700 hover:text-indigo-600 cart-icon relative">
+                            <i class="fas fa-shopping-cart text-2xl"></i>
+                            <span id="cartCount" class="cart-badge" style="display: none;">0</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -245,7 +460,8 @@ HTML_TEMPLATE = """
     <section class="hero-gradient text-white py-20 relative">
         <div class="max-w-7xl mx-auto px-4 text-center relative z-10">
             <h1 class="text-5xl md:text-7xl font-black mb-6">Welcome to ShopEasily</h1>
-            <p class="text-xl md:text-2xl mb-10 opacity-90 font-light">Discover amazing products at unbeatable prices ✨</p>
+            <p class="text-xl md:text-2xl mb-4 opacity-90 font-light">Discover amazing products at unbeatable prices ✨</p>
+            <p class="text-lg mb-10 opacity-80"><i class="fas fa-bolt mr-2"></i>Flash sales ending soon!</p>
             <button onclick="scrollToProducts()" class="hero-cta">
                 <i class="fas fa-arrow-down mr-2"></i>Start Shopping
             </button>
@@ -255,6 +471,7 @@ HTML_TEMPLATE = """
     <section id="products" class="max-w-7xl mx-auto px-4 py-16">
         <div class="text-center mb-12">
             <h2 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Featured Products</h2>
+            <p class="text-gray-600">Live inventory updates • Real-time pricing</p>
         </div>
         
         <div class="flex flex-wrap justify-center gap-3 mb-12">
@@ -265,33 +482,6 @@ HTML_TEMPLATE = """
         </div>
 
         <div id="productsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {% for product in products %}
-            <div class="product-card" data-category="{{ product.category }}" data-name="{{ product.name|lower }}">
-                {% if product.id in [1, 3] %}
-                <span class="badge-new">NEW</span>
-                {% endif %}
-                <div class="img-container">
-                    <img src="{{ product.image }}" alt="{{ product.name }}" class="w-full h-52 object-cover">
-                </div>
-                <div class="p-5">
-                    <div class="flex justify-between items-start mb-3">
-                        <h3 class="text-xl font-bold text-gray-800 flex-1">{{ product.name }}</h3>
-                        <span class="price-badge ml-2">${{ product.price }}</span>
-                    </div>
-                    <p class="text-gray-600 text-sm mb-4 leading-relaxed">{{ product.description }}</p>
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center text-yellow-400">
-                            <i class="fas fa-star"></i>
-                            <span class="text-gray-600 ml-1 text-sm">{{ product.rating }}</span>
-                        </div>
-                        <button onclick="addToCart({{ product.id }})" 
-                                class="add-to-cart-btn text-white px-5 py-2.5 text-sm transform active:scale-95">
-                            <i class="fas fa-cart-plus mr-2"></i>Add to Cart
-                        </button>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
         </div>
     </section>
 
@@ -301,8 +491,7 @@ HTML_TEMPLATE = """
             <button onclick="toggleCart()" class="text-gray-500 hover:text-red-500 text-xl"><i class="fas fa-times"></i></button>
         </div>
         
-        <div id="cartItems" class="p-5 flex-1 overflow-y-auto">
-            </div>
+        <div id="cartItems" class="p-5 flex-1 overflow-y-auto"></div>
         
         <div class="p-5 border-t border-gray-200 bg-white">
             <div class="flex justify-between items-center mb-5">
@@ -315,18 +504,33 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <div class="activity-feed">
+        <div class="stats-bar">
+            <div class="stat-item">
+                <i class="fas fa-fire text-orange-500"></i>
+                <span class="font-semibold text-gray-700">Live Activity</span>
+            </div>
+        </div>
+        <div id="activityFeed" class="overflow-y-auto" style="max-height: 320px;">
+        </div>
+    </div>
+
     <div id="cartOverlay" class="fixed inset-0 bg-black bg-opacity-40 hidden z-40" onclick="toggleCart()"></div>
     
     <div id="scrollTop" class="scroll-top" onclick="window.scrollTo(0,0)">
         <i class="fas fa-arrow-up"></i>
     </div>
 
-    <div id="notificationArea"></div>
-
     <script>
         let cart = [];
-        
-        document.addEventListener('DOMContentLoaded', loadCart);
+        let products = [];
+        let countdownTimers = {};
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCart();
+            loadProducts();
+            startRealtimeUpdates();
+        });
 
         function loadCart() {
             fetch('/get_cart')
@@ -337,253 +541,150 @@ HTML_TEMPLATE = """
                 });
         }
 
-        function addToCart(productId) {
-            fetch('/add_to_cart', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({product_id: productId})
-            })
-            .then(response => response.json())
-            .then(data => {
-                cart = data.cart;
-                updateCartUI();
-                showNotification('Item added to cart successfully!', 'success');
-                // Open cart automatically on add
-                const sidebar = document.getElementById('cartSidebar');
-                const overlay = document.getElementById('cartOverlay');
-                sidebar.classList.remove('translate-x-full');
-                overlay.classList.remove('hidden');
-            });
+        function loadProducts() {
+            fetch('/get_products')
+                .then(response => response.json())
+                .then(data => {
+                    products = data;
+                    renderProducts();
+                });
         }
 
-        function removeFromCart(productId) {
-            fetch('/remove_from_cart', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({product_id: productId})
-            })
-            .then(response => response.json())
-            .then(data => {
-                cart = data.cart;
-                updateCartUI();
-            });
-        }
+        function renderProducts() {
+            const grid = document.getElementById('productsGrid');
+            grid.innerHTML = products.map(product => {
+                const stockClass = product.stock === 0 ? 'stock-out' : 
+                                   product.stock <= 5 ? 'stock-low' : 'stock-available';
+                const stockText = product.stock === 0 ? 'Out of Stock' :
+                                  product.stock <= 5 ? `Only ${product.stock} left!` : 'In Stock';
+                
+                const isFlashSale = product.flash_sale;
+                const priceDisplay = isFlashSale ? 
+                    `<div class="flex items-center gap-2">
+                        <span class="original-price">$${product.original_price}</span>
+                        <span class="price-badge">$${product.price}</span>
+                    </div>` : 
+                    `<span class="price-badge">$${product.price}</span>`;
 
-        function updateQuantity(productId, newQuantity) {
-            if (newQuantity < 1) {
-                removeFromCart(productId);
-                return;
-            }
-            fetch('/update_quantity', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({product_id: productId, quantity: newQuantity})
-            })
-            .then(response => response.json())
-            .then(data => {
-                cart = data.cart;
-                updateCartUI();
-            });
-        }
-
-        function updateCartUI() {
-            const cartCount = document.getElementById('cartCount');
-            const cartItems = document.getElementById('cartItems');
-            const cartTotal = document.getElementById('cartTotal');
-
-            const newCount = cart.reduce((total, item) => total + item.quantity, 0);
-            cartCount.textContent = newCount;
-            cartCount.style.display = newCount > 0 ? 'flex' : 'none';
-
-            if (cart.length === 0) {
-                cartItems.innerHTML = `
-                    <div class="text-center text-gray-500 py-12">
-                        <i class="fas fa-shopping-cart text-4xl mb-3 text-gray-300"></i>
-                        <p>Your cart is empty</p>
-                    </div>`;
-                cartTotal.textContent = "$0.00";
-            } else {
-                let total = 0;
-                cartItems.innerHTML = cart.map(item => {
-                    total += item.price * item.quantity;
-                    return `
-                        <div class="flex items-center mb-4 bg-gray-50 p-3 rounded-lg">
-                            <img src="${item.image}" class="w-16 h-16 object-cover rounded-md">
-                            <div class="flex-1 ml-3">
-                                <h4 class="font-bold text-sm text-gray-800">${item.name}</h4>
-                                <p class="text-indigo-600 font-bold text-sm">$${item.price}</p>
-                                <div class="flex items-center mt-2">
-                                    <button onclick="updateQuantity(${item.id}, ${item.quantity - 1})" class="bg-white w-6 h-6 rounded border shadow-sm">-</button>
-                                    <span class="mx-3 text-sm font-semibold">${item.quantity}</span>
-                                    <button onclick="updateQuantity(${item.id}, ${item.quantity + 1})" class="bg-white w-6 h-6 rounded border shadow-sm">+</button>
-                                </div>
-                            </div>
-                            <button onclick="removeFromCart(${item.id})" class="text-gray-400 hover:text-red-500 ml-2">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                return `
+                    <div class="product-card" data-id="${product.id}" data-category="${product.category}" data-name="${product.name.toLowerCase()}">
+                        ${isFlashSale ? '<span class="badge-flash"><i class="fas fa-bolt mr-1"></i>FLASH SALE</span>' : ''}
+                        ${product.id === 1 || product.id === 3 ? '<span class="badge-new">NEW</span>' : ''}
+                        <div class="img-container">
+                            <img src="${product.image}" alt="${product.name}" class="w-full h-52 object-cover">
                         </div>
-                    `;
-                }).join('');
-                cartTotal.textContent = `$${total.toFixed(2)}`;
-            }
-        }
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="text-xl font-bold text-gray-800 flex-1">${product.name}</h3>
+                                ${priceDisplay}
+                            </div>
+                            <p class="text-gray-600 text-sm mb-3 leading-relaxed">${product.description}</p>
+                            
+                            <div class="mb-3">
+                                <span class="stock-badge ${stockClass}" data-product-id="${product.id}">
+                                    ${stockText}
+                                </span>
+                            </div>
 
-        function toggleCart() {
-            const sidebar = document.getElementById('cartSidebar');
-            const overlay = document.getElementById('cartOverlay');
-            sidebar.classList.toggle('translate-x-full');
-            overlay.classList.toggle('hidden');
-        }
+                            ${isFlashSale ? `<div class="countdown-timer" data-product-id="${product.id}" data-end-time="${product.sale_end}">
+                                <i class="fas fa-clock"></i>
+                                <span class="countdown-text">Loading...</span>
+                            </div>` : ''}
+                            
+                            <div class="flex justify-between items-center mt-4">
+                                <div class="flex items-center text-yellow-400">
+                                    <i class="fas fa-star"></i>
+                                    <span class="text-gray-600 ml-1 text-sm">${product.rating}</span>
+                                </div>
+                                <button onclick="addToCart(${product.id})" 
+                                        ${product.stock === 0 ? 'disabled' : ''}
+                                        class="add-to-cart-btn text-white px-5 py-2.5 text-sm transform active:scale-95">
+                                    <i class="fas fa-cart-plus mr-2"></i>${product.stock === 0 ? 'Sold Out' : 'Add to Cart'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
 
-        function filterProducts(category) {
-            const products = document.querySelectorAll('.product-card');
-            const buttons = document.querySelectorAll('.category-btn');
-
-            buttons.forEach(btn => {
-                if (btn.dataset.category === category) btn.classList.add('active');
-                else btn.classList.remove('active');
-            });
-
+            // Initialize countdown timers
             products.forEach(product => {
-                if (category === 'all' || product.dataset.category === category) {
-                    product.style.display = 'block';
-                    // Re-apply animation
-                    product.style.animation = 'fadeIn 0.5s ease';
-                } else {
-                    product.style.display = 'none';
+                if (product.flash_sale && product.sale_end) {
+                    startCountdown(product.id, product.sale_end);
                 }
             });
         }
 
-        // Search Functionality
-        document.getElementById('searchInput').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const products = document.querySelectorAll('.product-card');
-            
-            products.forEach(product => {
-                const name = product.dataset.name;
-                if (name.includes(searchTerm)) {
-                    product.style.display = 'block';
-                } else {
-                    product.style.display = 'none';
+        function startCountdown(productId, endTime) {
+            const timer = setInterval(() => {
+                const now = new Date().getTime();
+                const end = new Date(endTime).getTime();
+                const distance = end - now;
+
+                if (distance < 0) {
+                    clearInterval(timer);
+                    const element = document.querySelector(`[data-product-id="${productId}"].countdown-timer .countdown-text`);
+                    if (element) element.textContent = 'Sale Ended';
+                    return;
                 }
-            });
-        });
 
-        function scrollToProducts() {
-            document.getElementById('products').scrollIntoView({behavior: 'smooth'});
-        }
+                const hours = Math.floor(distance / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-        function checkout() {
-            if (cart.length === 0) {
-                showNotification('Your cart is empty!', 'error');
-                return;
-            }
-            showNotification('Processing payment... (Demo Only)', 'success');
-            setTimeout(() => {
-                alert('Thank you for your purchase! This is a demo.');
-                // Clear cart logic here if needed
+                const element = document.querySelector(`[data-product-id="${productId}"].countdown-timer .countdown-text`);
+                if (element) {
+                    element.textContent = `${hours}h ${minutes}m ${seconds}s`;
+                }
             }, 1000);
+
+            countdownTimers[productId] = timer;
         }
 
-        function showNotification(message, type) {
-            const notification = document.createElement('div');
-            notification.className = 'toast-notification show';
-            notification.innerHTML = `
-                <i class="fas ${type === 'success' ? 'fa-check-circle text-green-500' : 'fa-info-circle text-blue-500'} mr-3 text-xl"></i>
-                <span class="font-semibold text-gray-800">${message}</span>
-            `;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => notification.remove(), 300);
+        function startRealtimeUpdates() {
+            // Update products and activities every 3 seconds
+            setInterval(() => {
+                fetch('/get_realtime_updates')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Update active users
+                        document.getElementById('activeUsers').textContent = data.active_users;
+                        
+                        // Update activities
+                        updateActivityFeed(data.activities);
+                        
+                        // Update product stocks
+                        updateProductStocks(data.products);
+                    });
             }, 3000);
         }
 
-        // Show/Hide Scroll to top
-        window.addEventListener('scroll', () => {
-            const scrollTopBtn = document.getElementById('scrollTop');
-            if (window.scrollY > 300) {
-                scrollTopBtn.classList.add('show');
-            } else {
-                scrollTopBtn.classList.remove('show');
-            }
-        });
-    </script>
-</body>
-</html>
-"""
+        function updateActivityFeed(activities) {
+            const feed = document.getElementById('activityFeed');
+            feed.innerHTML = activities.map(activity => `
+                <div class="activity-item">
+                    <i class="fas fa-circle text-green-500 mr-2" style="font-size: 6px;"></i>
+                    ${activity.text}
+                </div>
+            `).join('');
+        }
 
-# --- Flask Routes ---
-
-@app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE, products=products)
-
-@app.route('/get_cart')
-def get_cart():
-    if 'cart' not in session:
-        session['cart'] = []
-    return jsonify(session['cart'])
-
-@app.route('/add_to_cart', methods=['POST'])
-def add_to_cart():
-    product_id = request.json.get('product_id')
-    
-    if 'cart' not in session:
-        session['cart'] = []
-    
-    cart = session['cart']
-    
-    # Check if item exists in cart
-    found = False
-    for item in cart:
-        if item['id'] == product_id:
-            item['quantity'] += 1
-            found = True
-            break
-            
-    if not found:
-        # Find product details from global products list
-        product = next((p for p in products if p['id'] == product_id), None)
-        if product:
-            cart.append({
-                'id': product['id'],
-                'name': product['name'],
-                'price': product['price'],
-                'image': product['image'],
-                'quantity': 1
-            })
-    
-    session['cart'] = cart # Save updates to session
-    return jsonify({'success': True, 'cart': cart})
-
-@app.route('/remove_from_cart', methods=['POST'])
-def remove_from_cart():
-    product_id = request.json.get('product_id')
-    if 'cart' in session:
-        cart = session['cart']
-        # Filter out the item to remove
-        session['cart'] = [item for item in cart if item['id'] != product_id]
-    
-    return jsonify({'success': True, 'cart': session.get('cart', [])})
-
-@app.route('/update_quantity', methods=['POST'])
-def update_quantity():
-    product_id = request.json.get('product_id')
-    quantity = request.json.get('quantity')
-    
-    if 'cart' in session:
-        cart = session['cart']
-        for item in cart:
-            if item['id'] == product_id:
-                item['quantity'] = quantity
-                break
-        session['cart'] = cart
-        
-    return jsonify({'success': True, 'cart': session.get('cart', [])})
-
-if __name__ == '__main__':
-    # host='0.0.0.0' makes it accessible from outside the container
-    app.run(host='0.0.0.0', port=5000, debug=True)
+        function updateProductStocks(updatedProducts) {
+            updatedProducts.forEach(updated => {
+                const product = products.find(p => p.id === updated.id);
+                if (product && product.stock !== updated.stock) {
+                    product.stock = updated.stock;
+                    
+                    // Update stock badge
+                    const stockBadge = document.querySelector(`[data-product-id="${updated.id}"].stock-badge`);
+                    if (stockBadge) {
+                        const stockClass = updated.stock === 0 ? 'stock-out' : 
+                                          updated.stock <= 5 ? 'stock-low' : 'stock-available';
+                        const stockText = updated.stock === 0 ? 'Out of Stock' :
+                                         updated.stock <= 5 ? `Only ${updated.stock} left!` : 'In Stock';
+                        
+                        stockBadge.className = `stock-badge ${stockClass}`;
+                        stockBadge.textContent = stockText;
+                        
+                        // Show notification for low stock
+                        if (updated.stock > 0 && updated.stock <= 3)
