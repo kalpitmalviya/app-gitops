@@ -9,7 +9,7 @@ import time
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this in production
 
-# Enhanced products with inventory and flash sale data.
+# Enhanced products with inventory and flash sale data
 products = [
     {
         "id": 1,
@@ -135,7 +135,7 @@ activity_thread = threading.Thread(target=simulate_activity, daemon=True)
 activity_thread.start()
 
 # HTML Template
-HTML_TEMPLATE = """
+HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -402,24 +402,6 @@ HTML_TEMPLATE = """
             z-index: 40;
         }
         .scroll-top.show { opacity: 1; pointer-events: all; }
-
-        .notification-popup {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-            padding: 16px 20px;
-            z-index: 100;
-            transform: translateX(400px);
-            transition: transform 0.3s ease;
-            max-width: 350px;
-        }
-
-        .notification-popup.show {
-            transform: translateX(0);
-        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -607,7 +589,6 @@ HTML_TEMPLATE = """
                 `;
             }).join('');
 
-            // Initialize countdown timers
             products.forEach(product => {
                 if (product.flash_sale && product.sale_end) {
                     startCountdown(product.id, product.sale_end);
@@ -642,18 +623,12 @@ HTML_TEMPLATE = """
         }
 
         function startRealtimeUpdates() {
-            // Update products and activities every 3 seconds
             setInterval(() => {
                 fetch('/get_realtime_updates')
                     .then(response => response.json())
                     .then(data => {
-                        // Update active users
                         document.getElementById('activeUsers').textContent = data.active_users;
-                        
-                        // Update activities
                         updateActivityFeed(data.activities);
-                        
-                        // Update product stocks
                         updateProductStocks(data.products);
                     });
             }, 3000);
@@ -675,7 +650,6 @@ HTML_TEMPLATE = """
                 if (product && product.stock !== updated.stock) {
                     product.stock = updated.stock;
                     
-                    // Update stock badge
                     const stockBadge = document.querySelector(`[data-product-id="${updated.id}"].stock-badge`);
                     if (stockBadge) {
                         const stockClass = updated.stock === 0 ? 'stock-out' : 
@@ -686,5 +660,34 @@ HTML_TEMPLATE = """
                         stockBadge.className = `stock-badge ${stockClass}`;
                         stockBadge.textContent = stockText;
                         
-                        // Show notification for low stock
-                        if (updated.stock > 0 && updated.stock <= 3)
+                        if (updated.stock > 0 && updated.stock <= 3) {
+                            showNotification(`⚠️ Only ${updated.stock} ${product.name} left!`, 'warning');
+                        }
+                    }
+
+                    const button = document.querySelector(`[data-id="${updated.id}"] .add-to-cart-btn`);
+                    if (button) {
+                        if (updated.stock === 0) {
+                            button.disabled = true;
+                            button.innerHTML = '<i class="fas fa-cart-plus mr-2"></i>Sold Out';
+                        } else {
+                            button.disabled = false;
+                            button.innerHTML = '<i class="fas fa-cart-plus mr-2"></i>Add to Cart';
+                        }
+                    }
+                }
+            });
+        }
+
+        function addToCart(productId) {
+            fetch('/add_to_cart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({product_id: productId})
+            })
+            .then(response => response.json())
+            .then(data => {
+                cart = data.cart;
+                updateCartUI();
+                showNotification('Item added to cart successfully!', 'success');
+                const sidebar = document.getElementById('cartSi
