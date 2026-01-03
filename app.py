@@ -221,7 +221,7 @@ HTML_TEMPLATE = """
                     <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
                         <i class="fas fa-shopping-bag text-white text-lg"></i>
                     </div>
-                    <span class="text-2xl logo-text">ShopEasy</span>
+                    <span class="text-2xl logo-text">ShopEasily</span>
                 </div>
                 
                 <div class="flex-1 max-w-2xl mx-8 hidden md:block">
