@@ -9,7 +9,7 @@ import time
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Change this in production
 
-# Enhanced products with inventory and flash sale data
+# Enhanced products with inventory and flash sale data.
 products = [
     {
         "id": 1,
