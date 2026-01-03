@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
         - name: myapp
-          image: kalpit191/ecommerce-flask-app:build-2
+          image: kalpit191/ecommerce-flask-app:build-3
           ports:
             - containerPort: 5000
