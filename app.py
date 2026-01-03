@@ -244,7 +244,7 @@ HTML_TEMPLATE = """
 
     <section class="hero-gradient text-white py-20 relative">
         <div class="max-w-7xl mx-auto px-4 text-center relative z-10">
-            <h1 class="text-5xl md:text-7xl font-black mb-6">Welcome to ShopEasy</h1>
+            <h1 class="text-5xl md:text-7xl font-black mb-6">Welcome to ShopEasily</h1>
             <p class="text-xl md:text-2xl mb-10 opacity-90 font-light">Discover amazing products at unbeatable prices ✨</p>
             <button onclick="scrollToProducts()" class="hero-cta">
                 <i class="fas fa-arrow-down mr-2"></i>Start Shopping
