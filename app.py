@@ -2,7 +2,7 @@ from flask import Flask, render_template_string, request, jsonify, session
 import json
 import os
 from datetime import datetime, timedelta
-import random
+import rando
 import threading
 import time
 
